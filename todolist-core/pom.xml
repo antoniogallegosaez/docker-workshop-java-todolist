@@ -71,14 +71,14 @@
             <groupId>org.hibernate</groupId>
             <artifactId>hibernate-core</artifactId>
             <version>${hibernate.version}</version>
-            <!-- <scope>provided</scope> -->
+            <scope>provided</scope>
         </dependency>
 
         <dependency>
             <groupId>org.hibernate</groupId>
             <artifactId>hibernate-entitymanager</artifactId>
             <version>${hibernate.version}</version>
-            <!-- <scope>provided</scope> -->
+            <scope>provided</scope>
 
             <exclusions>
                 <exclusion>
