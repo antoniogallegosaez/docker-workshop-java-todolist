@@ -1,14 +1,15 @@
 node('maven'){
+    // define commands
     def ocCmd = "oc --token=`cat /var/run/secrets/kubernetes.io/serviceaccount/token` --server=https://openshift.default.svc.cluster.local --certificate-authority=/run/secrets/kubernetes.io/serviceaccount/ca.crt"
-    def mvnCmd = "mvn -Dmaven.repo.local=/tmp/m2repo"
-    stage('build'){
+    def mvnCmd = "mvn -s configuration/cicd-settings.xml"
+    stage('build')
         git branch: 'master', url: 'https://github.com/jr00n/docker-workshop-java-todolist.git'
         sh "${mvnCmd} clean install -DskipTests=true"
-    }
-    stage('test'){
+    stage('test')
         sh "${mvnCmd} test"
-    }
-    stage('deploy'){
+    stage 'Push to Nexus'
+        sh "${mvnCmd} deploy -DskipTests=true"
+    stage('deploy')
         sh "rm -rf oc-build && mkdir -p oc-build/deployments"
         sh "cp todolist-web-servlet-jsp/target/todolist.war oc-build/deployments/ROOT.war"
         // clean up. keep the image stream
@@ -22,5 +23,4 @@ node('maven'){
         sh "${ocCmd} new-app todo:latest -n team-a"
         // expose, make a route for todo app
         sh "${ocCmd} expose svc/todo -n team-a"
-    }
 }
