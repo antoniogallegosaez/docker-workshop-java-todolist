@@ -1,34 +1,26 @@
-node('docker'){
-    stage('checkout'){
-      checkout scm
+node('maven'){
+    def ocCmd = "oc --token=`cat /var/run/secrets/kubernetes.io/serviceaccount/token` --server=https://openshift.default.svc.cluster.local --certificate-authority=/run/secrets/kubernetes.io/serviceaccount/ca.crt"
+    def mvnCmd = "mvn -Dmaven.repo.local=/tmp/m2repo"
+    stage('build'){
+        git branch: 'master', url: 'https://github.com/jr00n/docker-workshop-java-todolist.git'
+        sh "${mvnCmd} clean install -DskipTests=true"
     }
-
-    stage('maven build'){
-      writeFile file: 'settings.xml', text: "<settings><localRepository>${pwd()}/.m2repo</localRepository></settings>"
-      // TODO: implement
+    stage('test'){
+        sh "${mvnCmd} test"
     }
-
-    stage('docker build'){
-      // TODO: implement
-    }
-
     stage('deploy'){
-      // TODO: implement
-    }
-
-    stage('frontend tests'){
-      def urlMap = readFile('./urlMap')
-      dir('tests'){
-        sh 'mkdir -p .yarn-cache'
-        def yarnMapping = '-u root:root -v $PWD/.yarn-cache:/.yarn-cache'
-        docker.image('kkarczmarczyk/node-yarn:6.7-slim').inside(yarnMapping){
-          sh 'yarn install'
-        }
-        // TODO: implement running of tests
-      }
-    }
-
-    stage('teardown'){
-      // TODO: implement
+        sh "rm -rf oc-build && mkdir -p oc-build/deployments"
+        sh "cp todolist-web-servlet-jsp/target/todolist.war oc-build/deployments/ROOT.war"
+        // clean up. keep the image stream
+        //sh "${ocCmd} delete bc,dc,svc,route -l app=todo -n team-a"
+        openshiftDeleteResourceByLabels(types:'bc,dc,svc,route,build',keys:'app',values:'todo')
+        // build WildFly image with WAR
+        //sh "${ocCmd} new-build --name=todo --image-stream=jboss-eap70-openshift --binary=true --labels=app=todo -n team-a || true"
+        sh "${ocCmd} new-build --name=todo --image-stream=wildfly:latest --binary=true --labels=app=todo -n team-a || true"
+        sh "${ocCmd} start-build todo --from-dir=oc-build --wait=true -n team-a"
+        // deploy image
+        sh "${ocCmd} new-app todo:latest -n team-a"
+        // expose, make a route for todo app
+        sh "${ocCmd} expose svc/todo -n team-a"
     }
 }
